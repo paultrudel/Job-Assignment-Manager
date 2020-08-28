@@ -1,4 +1,4 @@
-# Job-Assignment-Manager
+# Job Assignment Manager
 Many companies, especially those in the service sector, have a set of jobs to be completed each day which must be assigned to their employees in some manner. This program automates the process of job assignments to employees. Simulated annealing is used to maximize a profit function **P(x)** where **'x'** is a specific set of job assignments to employees. The profit function is composed of other functions such that
 
 **P(x) = R(x) - D(x) - S(x) - E(x)** where<br>
