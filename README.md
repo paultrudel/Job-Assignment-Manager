@@ -29,6 +29,6 @@ The user can specify the number of iterations (or epochs) they wish the algorith
 <h3>Results</h3>
 After the algorithm has finished running the user can view the final job assignments as well the plot of the job assignment utility values over the iterations.
 
-![Image of Job Assignments](https://github.com/paultrudel/Job-Assignment-Manager/blob/master/Job-Assignment-Manager/images/set%20iterations.PNG)
+![Image of Job Assignments](https://github.com/paultrudel/Job-Assignment-Manager/blob/master/Job-Assignment-Manager/images/1200%20jobs%20300%20workers%20assignments.PNG)
 
-![Image of Utilities](https://github.com/paultrudel/Job-Assignment-Manager/blob/master/Job-Assignment-Manager/images/set%20iterations.PNG)
+![Image of Utilities](https://github.com/paultrudel/Job-Assignment-Manager/blob/master/Job-Assignment-Manager/images/1200Jobs%20300Workers100000Iterations.png)
