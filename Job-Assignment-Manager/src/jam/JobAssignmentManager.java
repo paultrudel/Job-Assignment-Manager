@@ -103,19 +103,28 @@ public class JobAssignmentManager {
 	private State generateOptimalSolution(State initialState) {
 		State nextState = cloneState(initialState);
 		State solution = cloneState(initialState);
-		double utilSolution = computeUtility(solution.getWorkersToJobs());
+		double utilSolution = computeUtility(solution.getWorkersToJobs()); // Compute the utility value of the initial solution
+		// Run the simulated annealing algorithm for the specified number of iterations
 		for(int n = 1; n <= MAX_ITERATIONS; n++) {
-			nextState = generateNextState(solution);
-			double utilNext = computeUtility(nextState.getWorkersToJobs());
-			double delta = utilNext - utilSolution;
+			nextState = generateNextState(solution); // Move to the next state in the search space
+			double utilNext = computeUtility(nextState.getWorkersToJobs()); // Compute the utility of this new state
+			double delta = utilNext - utilSolution; // Difference between the new and old utilities
+			// If the new state has a better utility make it the new solution
 			if(delta > 0) {
 				solution = cloneState(nextState);
 				utilSolution = utilNext;
 			}
+			/** 
+			If the new state has the same or worse utility move to the new state with some probability.
+			This is done to avoid getting stuck in local maxima in the hope of finding the gloabl maximum.
+			The probability of moving to the new state is based on difference in the utility values. The bigger
+			the difference the lower the probability of moving.
+			**/
 			else {
 				double lambda = Math.log(1 + n);
-				double p = Math.exp(delta / lambda);
-				double r = rand.nextDouble();
+				double p = Math.exp(delta / lambda); // Probability of moving to the new state
+				double r = rand.nextDouble(); // Random uniform value
+				// Move to the new state by making it the new solution if the random value is less than the probability
 				if(r < p) {
 					solution = cloneState(nextState);
 					utilSolution = utilNext;
@@ -127,20 +136,32 @@ public class JobAssignmentManager {
 		return solution;
 	}
 	
+	/** 
+	Uses the current state to identify a neighbouring state in the search space. This is done by taking a job assignment
+	from one worker at random and giving it to another random worker.
+	**/
 	private State generateNextState(State currentState) {
+		// Copy job assignments from the current state
 		HashMap<String, String> jobsToWorkers = new HashMap<>(currentState.getJobsToWorkers());
 		HashMap<String, List<String>> workersToJobs = new HashMap<>(currentState.getWorkersToJobs());
-		List<String> jobIds = new ArrayList<>(jobsToWorkers.keySet());
-		String jobId = jobIds.get(rand.nextInt(jobIds.size()));
-		String prevWorkerId = jobsToWorkers.get(jobId);
-		List<String> workerIds = company.getWorkerIds();
-		String nextWorkerId = workerIds.get(rand.nextInt(workerIds.size()));
+		
+		List<String> jobIds = new ArrayList<>(jobsToWorkers.keySet()); // List of jobs IDs that have been assigned
+		String jobId = jobIds.get(rand.nextInt(jobIds.size())); // Pick a job at random
+		String prevWorkerId = jobsToWorkers.get(jobId); // Identify the worker that the job is being taken from
+		List<String> workerIds = company.getWorkerIds(); // List of worker IDs
+		String nextWorkerId = workerIds.get(rand.nextInt(workerIds.size())); // Pick a worker at random
+		
+		// Ensure that the new worker is not the same as the previous one
 		while(prevWorkerId.equals(nextWorkerId))
 			nextWorkerId = workerIds.get(rand.nextInt(workerIds.size()));
-		List<String> prevWorkerJobs = new ArrayList<>(workersToJobs.get(prevWorkerId));
-		List<String> nextWorkerJobs = new ArrayList<>(workersToJobs.get(nextWorkerId));
-		prevWorkerJobs.remove(jobId);
-		nextWorkerJobs.add(jobId);
+		
+		List<String> prevWorkerJobs = new ArrayList<>(workersToJobs.get(prevWorkerId)); // Get the list of assigned jobs for the previous worker
+		List<String> nextWorkerJobs = new ArrayList<>(workersToJobs.get(nextWorkerId)); // Get the list of assigned jobs for the next worker
+		
+		prevWorkerJobs.remove(jobId); // Take the job from the previous worker
+		nextWorkerJobs.add(jobId); // Give the job to the new worker
+		
+		// Create the next state using the new job assignements
 		jobsToWorkers.put(jobId, nextWorkerId);
 		workersToJobs.put(prevWorkerId, prevWorkerJobs);
 		workersToJobs.put(nextWorkerId, nextWorkerJobs);
@@ -155,27 +176,32 @@ public class JobAssignmentManager {
 		return clonedState;
 	}
 	
+	/** Computes the utility value of the given job assignments **/
 	public double computeUtility(HashMap<String, List<String>> workersToJobs) {
-		double utility = 0;
-		double revenue = 0;
-		double distanceTravelled = 0;
-		double employeePay = 0;
-		int numMismatched = 0;
+		double utility = 0; // Overall utility value of the assignments
+		double revenue = 0; // Revenue generated from the assignments
+		double distanceTravelled = 0; // Distance employees must travel to complete the jobs
+		double employeePay = 0; // Amount the employees must be paid for their work
+		int numMismatched = 0; // The number of jobs that have been inappropriately assigned
 		
+		// Loop through all of the job assignments to compute their contribution to the overall utility
 		for(Map.Entry<String, List<String>> entry: workersToJobs.entrySet()) {
-			revenue += computeRevenue(entry.getValue());
-			distanceTravelled += computeDistanceTravelled(entry.getValue());
-			employeePay += computeEmployeePay(workers.get(entry.getKey()), entry.getValue());
-			numMismatched += computeNumMismatched(workers.get(entry.getKey()), entry.getValue());
+			revenue += computeRevenue(entry.getValue()); // Compute revenue from the job
+			distanceTravelled += computeDistanceTravelled(entry.getValue()); // Compute distance to be travelled for the job
+			employeePay += computeEmployeePay(workers.get(entry.getKey()), entry.getValue()); // Compute the amount to pay worker for job
+			numMismatched += computeNumMismatched(workers.get(entry.getKey()), entry.getValue()); // Check if the job is properly assigned
 		}
 		
+		// Compute the utility using company specific values for employee pay and travel cost
 		utility = revenue - (Company.DISTANCE_COST * distanceTravelled) - employeePay - 
 				(Company.MISMATCH_PENALTY * numMismatched);
 		return utility;
 	}
 	
+	/** Checks if it is possible for the desired worker to take on the given job **/
 	private boolean canTakeJob(List<String> jobAssignments, Job job, Worker worker) {
-		int[] skillSet = worker.getSkillSet();
+		int[] skillSet = worker.getSkillSet(); // Get the workers skill set
+		// Check if the worker has the skill to complete the job and if assignment of the job will not put them over the work limit
 		for(int skill : skillSet) {
 			if(skill == job.getType() && (getHoursToWork(jobAssignments) + job.getDuration()) < 
 					Company.MAX_TIME)
@@ -184,6 +210,7 @@ public class JobAssignmentManager {
 		return false;
 	}
 	
+	/** Compute the number of hours an employee must work from their job assignments **/
 	private int getHoursToWork(List<String> jobAssignments) {
 		int hoursToWork = 0;
 		for(String jobId: jobAssignments)
@@ -191,6 +218,7 @@ public class JobAssignmentManager {
 		return hoursToWork;
 	}
 	
+	/** Compute the revenue generated from completing the assigned jobs **/
 	private double computeRevenue(List<String> jobAssignments) {
 		double revenue = 0;
 		for(String jobId: jobAssignments)
@@ -198,6 +226,7 @@ public class JobAssignmentManager {
 		return revenue;
 	}
 	
+	/** Compute the distance the worker must travel to complete the jobs **/
 	private double computeDistanceTravelled(List<String> jobAssignments) {
 		double distanceTravelled = 0;
 		Point2D currLocation = Company.LOCATION;
@@ -208,6 +237,7 @@ public class JobAssignmentManager {
 		return (2 * distanceTravelled);
 	}
 	
+	/** Compute the amount the employee must be paid for their work **/
 	private double computeEmployeePay(Worker worker, List<String> jobAssignments) {
 		int timeWorked = 0;
 		double payment = 0;
@@ -223,6 +253,7 @@ public class JobAssignmentManager {
 		return payment;
 	}
 	
+	/** Identify the number of jobs improperly assigned to the worker **/
 	private int computeNumMismatched(Worker worker, List<String> jobAssignments) {
 		int numMismatched = 0;
 		for(String jobId: jobAssignments) {
@@ -232,6 +263,7 @@ public class JobAssignmentManager {
 		return numMismatched;
 	}
 	
+	/** Given a job and worker see if the worker can do the job **/
 	private boolean isMatch(Job job, Worker worker) {
 		for(int skill: worker.getSkillSet()) {
 			if(skill == job.getType())
@@ -250,6 +282,7 @@ public class JobAssignmentManager {
 		}
 	}
 	
+	/** State representation of a set of job assignments **/
 	public class State {
 		
 		private HashMap<String, String> jobsToWorkers;
