@@ -11,17 +11,32 @@ import model.Company;
 import model.Job;
 import model.Worker;
 
+/**
+Takes as input a set of jobs and a set of workers and outputs a set of job assignments to the workers.
+The program will attempt to output a set of job assignments that maximize the profit function define by
+the company through the use of simulated annealing.
+**/
 public class JobAssignmentManager {
 	
+	// Number of iterations (or epochs) the algorithm should run for
 	private static int MAX_ITERATIONS = 100000;
+	
+	// After how many epochs a plot point should be created. Used for plotting the progress of the algorithm
 	private static  int INCREMENTS = MAX_ITERATIONS / 20;
 
+	// Set of jobs where each job is mapped to a unique id
 	private HashMap<String, Job> jobs;
+	
+	// Set of workers where each worker is mapped to a unique id 
 	private HashMap<String, Worker> workers;
+	
+	// Plot points of the algorithms progress. A utility value is mapped to an epoch
 	private HashMap<Integer, Double> utilities;
+	
 	private Random rand;
 	private Company company;
 	
+	/** Recieves the sets of jobs and workers and returns job assignments **/
 	public HashMap<String, List<String>> generateJobAssignments(Company company, HashMap<String, Job> jobs, 
 			HashMap<String, Worker> workers) {
 		this.jobs = new HashMap<String, Job>(jobs);
@@ -41,17 +56,31 @@ public class JobAssignmentManager {
 	}
 	public static int getIncrements() { return INCREMENTS; }
 	
+	/** Create the initial state from which to start the search for an optimal solution **/
 	private State generateInitialState() {
+		// Maps jobs to workers in a one-to-one manner. A job can only have one worker.
 		HashMap<String, String> jobsToWorkers = new HashMap<>();
+		
+		// Maps workers to jobs in a one-to-many manner. A worker may have many jobs.
 		HashMap<String, List<String>> workersToJobs = new HashMap<>();
 		
+		// Initially assign all workers to an empty set of jobs
 		for(Worker worker: workers.values())
 			workersToJobs.put(worker.getId(), new ArrayList<>());
 		
+		/** 
+		Loop through the jobs and assign the job to a worker. Jobs are initially assigned to the first
+		available worker. Workers are considered to be available if they can do the job, i.e. their
+		skill set matches the one required for the job, and they can take the job without exceeding the
+		12 hours of work in a day limit.
+		**/
 		for(Job job: jobs.values()) {
 			boolean canAssign = false;
+			// Loop through the workers to identify the first available worker
 			for(Worker worker: workers.values()) {
+				// Check if the worker can take the job, i.e. is available
 				canAssign = canTakeJob(workersToJobs.get(worker.getId()), job, worker);
+				// Assign the worker to the job if they are available
 				if(canAssign) {
 					jobsToWorkers.put(job.getId(), worker.getId());
 					List<String> jobs = workersToJobs.get(worker.getId());
@@ -62,11 +91,15 @@ public class JobAssignmentManager {
 			}
 		}
 		
+		// Create the initial state using the job assignments
 		State initialState = new State(jobsToWorkers, workersToJobs);
+		
+		// Enter the initial state utility, the utility value at epoch 0, into the map
 		utilities.put(0, computeUtility(initialState.getWorkersToJobs()));
 		return initialState;
 	}
 	
+	/** The simulated annealing algorithm used to identify the job assignment which maximize the companies profit function **/
 	private State generateOptimalSolution(State initialState) {
 		State nextState = cloneState(initialState);
 		State solution = cloneState(initialState);
